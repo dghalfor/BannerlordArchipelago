@@ -11,6 +11,7 @@
 
 	<ItemGroup>
 	  <PackageReference Include="Archipelago.MultiClient.Net" Version="6.7.1" />
+	  <PackageReference Include="Bannerlord.MCM" Version="5.0.0" IncludeAssets="compile" />
 	</ItemGroup>
 
 	<ItemGroup>

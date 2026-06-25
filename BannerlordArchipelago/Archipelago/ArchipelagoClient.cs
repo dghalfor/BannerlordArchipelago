@@ -50,7 +50,7 @@ public class ArchipelagoClient
     /// </summary>
     private void SetupSession()
     {
-        ReceivedItemsTracker.Reset();
+        //ReceivedItemsTracker.Reset();
         session.Items.ItemReceived += OnItemReceived;
         session.Socket.ErrorReceived += OnSessionErrorReceived;
         session.Socket.SocketClosed += OnSessionSocketClosed;
@@ -72,7 +72,7 @@ public class ArchipelagoClient
                         ItemsHandlingFlags.AllItems, 
                         new Version(APVersion),
                         password: ServerData.Password,
-                        requestSlotData: false // ServerData.NeedSlotData
+                        requestSlotData: true 
                     )));
         }
         catch (Exception e)
@@ -99,8 +99,6 @@ public class ArchipelagoClient
 
             session.Locations.CompleteLocationChecksAsync(ServerData.CheckedLocations.ToArray());
             outText = $"Successfully connected to {ServerData.Uri} as {ServerData.SlotName}!";
-
-            //ArchipelagoConsole.LogMessage(outText);
         }
         else
         {
@@ -145,7 +143,7 @@ public class ArchipelagoClient
         var receivedItem = helper.DequeueItem();
         ServerData.Index++;
 
-        ReceivedItemsTracker.OnItemReceived(receivedItem.ItemName);
+        ReceivedItemsTracker.OnItemReceived(receivedItem.ItemName, helper.Index);
     }
 
     public void SendLocationCheck(string locationName)
@@ -161,10 +159,8 @@ public class ArchipelagoClient
             }
             else
             {
-                InformationManager.DisplayMessage(new InformationMessage(
-                    $"[AP Debug] No mapping found in GameNameToAPLocation for: '{locationName}'",
-                    Colors.Red
-                ));
+                var locationId = session.Locations.GetLocationIdFromName(Game, locationName);
+                locationIds.Add(locationId);
             }
 
             if (locationIds.Count > 0)
@@ -201,5 +197,12 @@ public class ArchipelagoClient
     {
         //Plugin.BepinLogger.LogError($"Connection to Archipelago lost: {reason}");
         Disconnect();
+    }
+    public void SendGoalAchieved()
+    {
+        if (!Authenticated || session == null) return;
+
+        var statusUpdate = new StatusUpdatePacket { Status = ArchipelagoClientState.ClientGoal };
+        session.Socket.SendPacketAsync(statusUpdate);
     }
 }

@@ -1,9 +1,5 @@
 ﻿using HarmonyLib;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using TaleWorlds.CampaignSystem;
 using TaleWorlds.Core;
 using TaleWorlds.MountAndBlade;
 
@@ -16,23 +12,31 @@ namespace BannerlordArchipelago
 
         protected override void OnSubModuleLoad()
         {
-            base.OnSubModuleLoad(); 
-
+            base.OnSubModuleLoad();
             _harmony = new Harmony("mod.bannerlord.bannerlordarchipelago");
             _harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
-            APClient.Connect();
+            // No connect here — settings aren't loaded yet and there's no campaign
         }
 
-        public override void OnGameLoaded(Game game, object initializeData)
+        protected override void OnBeforeInitialModuleScreenSetAsRoot()
         {
-            base.OnGameLoaded(game, initializeData);
-
+            base.OnBeforeInitialModuleScreenSetAsRoot();
+            // MCM settings are available by this point
         }
+
+        protected override void OnGameStart(Game game, IGameStarter gameStarter)
+        {
+            base.OnGameStart(game, gameStarter);
+            if (gameStarter is CampaignGameStarter campaignStarter)
+            {
+                campaignStarter.AddBehavior(new ArchipelagoCampaignBehavior());
+            }
+        }
+
         protected override void OnSubModuleUnloaded()
         {
             base.OnSubModuleUnloaded();
             APClient.Disconnect();
         }
-
     }
 }

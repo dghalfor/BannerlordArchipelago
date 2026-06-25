@@ -1,6 +1,7 @@
 ﻿using BannerlordArchipelago.Archipelago;
 using HarmonyLib;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.CampaignBehaviors;
@@ -30,12 +31,6 @@ namespace BannerlordArchipelago.Hooks
                 string itemName = $"Progressive {cultureName} Troop Tier";
                 int tiersUnlocked = ReceivedItemsTracker.GetCount(itemName);
 
-                InformationManager.DisplayMessage(new InformationMessage(
-                    $"[AP Debug] Player upgrade. From: {character.Name} (T{character.Tier}) -> To: {characterObject.Name} (T{targetTier}), " +
-                    $"Culture: {cultureName}, Unlocked: {tiersUnlocked}, Required: {targetTier - 1}",
-                    Colors.Green
-                ));
-
                 if (tiersUnlocked < targetTier - 1)
                 {
                     InformationManager.DisplayMessage(new InformationMessage(
@@ -55,6 +50,33 @@ namespace BannerlordArchipelago.Hooks
                     Colors.Red
                 ));
                 return true;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(PartyScreenLogic), "DoneLogic")]
+    public static class DoneLogicPatch
+    {
+        public static void Prefix(PartyScreenLogic __instance, out List<Tuple<CharacterObject, CharacterObject, int>> __state)
+        {
+            // Snapshot the history before DoneLogic clears it
+            __state = new List<Tuple<CharacterObject, CharacterObject, int>>(
+                __instance.CurrentData.UpgradedTroopsHistory
+            );
+        }
+
+        public static void Postfix(bool __result, List<Tuple<CharacterObject, CharacterObject, int>> __state)
+        {
+            if (!__result) return; // Gold check failed or delegate rejected — nothing committed
+
+            foreach (var (_, toCharacter, count) in __state)
+            {
+                if (toCharacter == null) continue;
+                for (int i = 0; i < count; i++)
+                {
+                    string locationName = $"Upgraded to {toCharacter.Name}";
+                    Main.APClient.SendLocationCheck(locationName);
+                }
             }
         }
     }

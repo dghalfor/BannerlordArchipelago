@@ -1,19 +1,85 @@
-﻿using Helpers;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TaleWorlds.CampaignSystem.Roster;
+using TaleWorlds.CampaignSystem;
+using TaleWorlds.CampaignSystem.Actions;
+using TaleWorlds.CampaignSystem.CharacterDevelopment;
+using TaleWorlds.Core;
+using TaleWorlds.Library;
+using TaleWorlds.ObjectSystem;
 
-namespace BannerlordArchipelago.Services
+namespace BannerlordArchipelago.Archipelago
 {
-    public class GiveItemService
+    public static class ItemGranter
     {
-        public GiveItemService()
+        // ── Denars ──────────────────────────────────────────────────────────
+        public static void GiveDenars(int amount)
         {
-            ItemRoster archipelagoItems = new ItemRoster();
-            InventoryScreenHelper.OpenScreenAsStash(archipelagoItems);
+            GiveGoldAction.ApplyBetweenCharacters(null, Hero.MainHero, amount, false);
+        }
+
+        // ── Butter (or any item by string ID) ───────────────────────────────
+        public static void GiveItem(string itemId, int count = 1)
+        {
+            var itemObject = MBObjectManager.Instance.GetObject<ItemObject>(itemId);
+            if (itemObject == null)
+            {
+                Log($"GiveItem: could not find item '{itemId}'");
+                return;
+            }
+            var element = new ItemRosterElement(itemObject, count);
+            Hero.MainHero.PartyBelongedTo?.ItemRoster.AddToCounts(itemObject, count);
+        }
+
+        // ── Horses (by culture or generic) ──────────────────────────────────
+        // Pass a specific item ID like "aserai_horse" or "t3_horse" etc.
+        // If you want a generic mount, "sumpter_horse" is always available.
+        public static void GiveHorse(string horseItemId = "sumpter_horse", int count = 1)
+        {
+            GiveItem(horseItemId, count);
+        }
+
+        // ── Renown ────────────────────────────────────────────────────────
+        public static void GiveRenown(float amount)
+        {
+            if (Hero.MainHero.Clan == null)
+            {
+                Log("GiveRenown: player has no clan");
+                return;
+            }
+            GainRenownAction.Apply(Hero.MainHero, amount, false);
+        }
+
+        // ── Hero Level (via XP on a broad skill spread) ──────────────────────
+        // Bannerlord levels are driven by skill XP, not a direct level field.
+        // AddSkillXp on a broad set of skills is the safest way to push a level.
+        // Alternatively, HeroDeveloper.UnlockGenericPerks() triggers perk points.
+        public static void GiveSkillXp(SkillObject skill, float amount)
+        {
+            Hero.MainHero.AddSkillXp(skill, amount);
+        }
+
+        // Give +delta relation with every living lord in a given kingdom by StringId,
+        // or all kingdoms if kingdomStringId is null.
+        public static void GiveRelationWithAllLords(int delta, string kingdomStringId = null)
+        {
+            ArchipelagoItems.SuppressCharmGain = true;
+            try
+            {
+                foreach (var hero in Hero.AllAliveHeroes)
+                {
+                    if (!hero.IsLord || hero == Hero.MainHero) continue;
+                    if (kingdomStringId != null && hero.MapFaction?.StringId != kingdomStringId) continue;
+                    ChangeRelationAction.ApplyRelationChangeBetweenHeroes(Hero.MainHero, hero, delta, false);
+                }
+            }
+            finally
+            {
+                ArchipelagoItems.SuppressCharmGain = false;
+            }
+        }
+        private static void Log(string msg)
+        {
+            InformationManager.DisplayMessage(new InformationMessage($"[AP] {msg}", Colors.Red));
         }
     }
 }
