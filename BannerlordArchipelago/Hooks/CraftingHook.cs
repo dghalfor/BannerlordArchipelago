@@ -32,17 +32,18 @@ namespace BannerlordArchipelago.Hooks
     [HarmonyPatch(typeof(CraftingVM), "ExecuteMainAction")]
     public static class CraftingMainActionPatch
     {
-        private static readonly FieldInfo CraftingField = typeof(WeaponDesignVM)
-            .GetField("_crafting", BindingFlags.NonPublic | BindingFlags.Instance);
-
         public static bool Prefix(CraftingVM __instance)
         {
             try
             {
-                var weaponDesignVM = __instance.WeaponDesign;
-                if (weaponDesignVM == null) return true;
+                if (!__instance.IsInCraftingMode) return true;
 
-                var crafting = CraftingField.GetValue(weaponDesignVM) as Crafting;
+                var weaponDesign = __instance.WeaponDesign;
+                if (weaponDesign == null) return true;
+
+                var crafting = typeof(WeaponDesignVM)
+                    .GetField("_crafting", BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?.GetValue(weaponDesign) as Crafting;
                 if (crafting == null) return true;
 
                 return CraftingShared.CheckCraftingAllowed(crafting.CurrentWeaponDesign);

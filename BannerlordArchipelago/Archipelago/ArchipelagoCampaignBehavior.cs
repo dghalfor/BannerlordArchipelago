@@ -14,6 +14,7 @@ namespace BannerlordArchipelago
             CampaignEvents.OnNewGameCreatedEvent.AddNonSerializedListener(this, OnNewGameCreated);
             CampaignEvents.OnGameLoadedEvent.AddNonSerializedListener(this, OnGameLoaded);
             CampaignEvents.DailyTickEvent.AddNonSerializedListener(this, OnDailyTick);
+            CampaignEvents.HourlyTickEvent.AddNonSerializedListener(this, OnHourlyTick);
         }
 
         public static int _savedItemIndex = 0;
@@ -96,6 +97,10 @@ namespace BannerlordArchipelago
                 InformationManager.DisplayMessage(new InformationMessage(
                     $"[AP] FoodSanity exception: {e.Message}", Colors.Red));
             }
+        }
+        private void OnHourlyTick()
+        {
+            Main.APClient.Flush();
         }
     }
 }

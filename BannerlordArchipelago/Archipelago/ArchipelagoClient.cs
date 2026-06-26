@@ -214,12 +214,11 @@ public class ArchipelagoClient
 
     public static void OnMessageReceived(LogMessage message)
     {
+        var sb = new System.Text.StringBuilder();
         foreach (var part in message.Parts)
-        {
-            var apColor = part.Color;
-            var bColor = new Color(apColor.R / 255f, apColor.G / 255f, apColor.B / 255f);
-            _pending.Enqueue(new InformationMessage(part.Text, bColor));
-        }
+            sb.Append(part.Text);
+
+        _pending.Enqueue(new InformationMessage(sb.ToString(), new Color(0.8f, 0.8f, 0.8f)));
     }
 
     public void Flush()
