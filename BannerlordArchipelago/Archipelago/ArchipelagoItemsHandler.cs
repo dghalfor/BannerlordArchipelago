@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TaleWorlds.CampaignSystem;
+using TaleWorlds.CampaignSystem.CampaignBehaviors;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 
@@ -54,7 +56,74 @@ namespace BannerlordArchipelago.Archipelago
         public const string MedicineXp = "Medicine Scroll";
         public const string EngineeringXp = "Engineering Scroll";
 
+        public const string ProgressiveSturgiaTroopTier = "Progressive sturgia Troop Tier";
+        public const string ProgressiveEmpireTroopTier = "Progressive empire Troop Tier";
+        public const string ProgressiveBattaniaTroopTier = "Progressive battania Troop Tier";
+        public const string ProgressiveVlandiaTroopTier = "Progressive vlandia Troop Tier";
+        public const string ProgressiveKhuzaitTroopTier = "Progressive khuzait Troop Tier";
+        public const string ProgressiveAseraiTroopTier = "Progressive aserai Troop Tier";
+        public const string ProgressiveNordTroopTier = "Progressive nord Troop Tier";
+
+        public const string TournamentPassAserai = "Tournament Pass - Aserai";
+        public const string TournamentPassBattania = "Tournament Pass - Battania";
+        public const string TournamentPassKhuzait = "Tournament Pass - Khuzait";
+        public const string TournamentPassSturgia = "Tournament Pass - Sturgia";
+        public const string TournamentPassVlandia = "Tournament Pass - Vlandia";
+        public const string TournamentPassNorthernEmpire = "Tournament Pass - Northern Empire";
+        public const string TournamentPassSouthernEmpire = "Tournament Pass - Southern Empire";
+        public const string TournamentPassWesternEmpire = "Tournament Pass - Western Empire";
+
+        public const string CraftingRecipeOneHandedSword = "Crafting Recipe - One Handed Sword";
+        public const string CraftingRecipeTwoHandedSword = "Crafting Recipe - Two Handed Sword";
+        public const string CraftingRecipeOneHandedAxe = "Crafting Recipe - One Handed Axe";
+        public const string CraftingRecipeTwoHandedAxe = "Crafting Recipe - Two Handed Axe";
+        public const string CraftingRecipeMace = "Crafting Recipe - Mace";
+        public const string CraftingRecipeTwoHandedMace = "Crafting Recipe - Two Handed Mace";
+        public const string CraftingRecipeDagger = "Crafting Recipe - Dagger";
+        public const string CraftingRecipePike = "Crafting Recipe - Pike";
+        public const string CraftingRecipeTwoHandedPolearm = "Crafting Recipe - Two Handed Polearm";
+        public const string CraftingRecipeJavelin = "Crafting Recipe - Javelin";
+        public const string CraftingRecipeThrowingAxe = "Crafting Recipe - Throwing Axe";
+        public const string CraftingRecipeThrowingKnife = "Crafting Recipe - Throwing Knife";
+
+        public const string CraftingPlanBundle = "Crafting Plan Bundle";
+
         public static bool SuppressCharmGain = false;
+
+        public static List<string> AlwaysProcessItems()
+        {
+            return new List<string>
+            {
+                DragonBannerPiece,
+                ProgressiveSturgiaTroopTier,
+                ProgressiveEmpireTroopTier,
+                ProgressiveBattaniaTroopTier,
+                ProgressiveVlandiaTroopTier,
+                ProgressiveKhuzaitTroopTier,
+                ProgressiveAseraiTroopTier,
+                ProgressiveNordTroopTier,
+                TournamentPassAserai,
+                TournamentPassBattania,
+                TournamentPassKhuzait,
+                TournamentPassSturgia,
+                TournamentPassVlandia,
+                TournamentPassNorthernEmpire,
+                TournamentPassSouthernEmpire,
+                TournamentPassWesternEmpire,
+                CraftingRecipeOneHandedSword,
+                CraftingRecipeTwoHandedSword,
+                CraftingRecipeOneHandedAxe,
+                CraftingRecipeTwoHandedAxe,
+                CraftingRecipeMace,
+                CraftingRecipeTwoHandedMace,
+                CraftingRecipeDagger,
+                CraftingRecipePike,
+                CraftingRecipeTwoHandedPolearm,
+                CraftingRecipeJavelin,
+                CraftingRecipeThrowingAxe,
+                CraftingRecipeThrowingKnife,
+            };
+        }
     }
 
     public static class ReceivedItemsTracker
@@ -63,17 +132,16 @@ namespace BannerlordArchipelago.Archipelago
 
         public static void OnItemReceived(string itemName, int index)
         {
-            if (index > ArchipelagoCampaignBehavior._savedItemIndex || itemName == ArchipelagoItems.DragonBannerPiece)
+            if (index > ArchipelagoCampaignBehavior._savedItemIndex || ArchipelagoItems.AlwaysProcessItems().Contains(itemName))
             {
                 if (_itemCounts.ContainsKey(itemName))
                     _itemCounts[itemName]++;
                 else
                     _itemCounts[itemName] = 1;
             
-
                 HandleItem(itemName);
             }
-        }
+        } 
 
         public static int GetCount(string itemName)
         {
@@ -218,7 +286,10 @@ namespace BannerlordArchipelago.Archipelago
                     ItemGranter.GiveRelationWithAllLords(5);
                     Notify(itemName, "+5 relation with all lords.");
                     break;
-
+                case ArchipelagoItems.CraftingPlanBundle:
+                    ItemGranter.CraftingPlanBundleItem.Grant(Campaign.Current.GetCampaignBehavior<ICraftingCampaignBehavior>());
+                    Notify(itemName, "Received a Crafting Plan Bundle.");
+                    break;
                 default:
                     InformationManager.DisplayMessage(new InformationMessage(
                         $"[AP] Received unhandled item: {itemName}",

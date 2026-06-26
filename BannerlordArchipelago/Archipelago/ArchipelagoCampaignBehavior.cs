@@ -17,6 +17,7 @@ namespace BannerlordArchipelago
         }
 
         public static int _savedItemIndex = 0;
+        private bool _connectCalled = false;
 
         public override void SyncData(IDataStore dataStore)
         {
@@ -39,13 +40,15 @@ namespace BannerlordArchipelago
         private void OnNewGameCreated(CampaignGameStarter starter)
         {
             _checkedFoodVarieties.Clear();
+            _connectCalled = false;
             TryConnect();
         }
 
         private void OnGameLoaded(CampaignGameStarter starter)
         {
             _checkedFoodVarieties.Clear();
-            TryConnect();
+            if (!_connectCalled)
+                TryConnect();
         }
 
         private void TryConnect()

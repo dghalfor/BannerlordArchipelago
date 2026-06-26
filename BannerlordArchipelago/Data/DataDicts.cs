@@ -111,11 +111,22 @@ namespace BannerlordArchipelago.Data
             { "VillageNeedsCraftingMaterialsIssueQuest","Village Needs Crafting Materials Quest" },
             { "VillageNeedsToolsIssueQuest","Village Needs Tools Quest" },
         };
-        public static readonly Dictionary<string, string> QuestTypeToLocation = new Dictionary<string, string>()
-        {
-            
-        };
-
+        public static readonly Dictionary<string, string> CraftingPlanItem =
+            new Dictionary<string, string>
+            {
+                { "OneHandedSword",    "Crafting Recipe - One Handed Sword" },
+                { "TwoHandedSword",    "Crafting Recipe - Two Handed Sword" },
+                { "OneHandedAxe",      "Crafting Recipe - One Handed Axe" },
+                { "TwoHandedAxe",      "Crafting Recipe - Two Handed Axe" },
+                { "Mace",              "Crafting Recipe - Mace" },
+                { "TwoHandedMace",     "Crafting Recipe - Two Handed Mace" },
+                { "Dagger",            "Crafting Recipe - Dagger" },
+                { "Pike",              "Crafting Recipe - Pike" },
+                { "TwoHandedPolearm",  "Crafting Recipe - Two Handed Polearm" },
+                { "Javelin",           "Crafting Recipe - Javelin" },
+                { "ThrowingAxe",       "Crafting Recipe - Throwing Axe" },
+                { "ThrowingKnife",     "Crafting Recipe - Throwing Knife" },
+            };
         public static readonly Dictionary<string, string> ItemNameToGameObject = new Dictionary<string, string>
         {
         };

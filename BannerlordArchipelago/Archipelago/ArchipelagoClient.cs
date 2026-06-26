@@ -2,10 +2,12 @@
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Helpers;
+using Archipelago.MultiClient.Net.MessageLog.Messages;
 using Archipelago.MultiClient.Net.Packets;
 using BannerlordArchipelago.Archipelago;
 using BannerlordArchipelago.Data;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -30,6 +32,7 @@ public class ArchipelagoClient
     public void Connect()
     {
         if (Authenticated || attemptingConnection) return;
+        attemptingConnection = true; 
 
         try
         {
@@ -39,12 +42,12 @@ public class ArchipelagoClient
         catch (Exception e)
         {
             InformationManager.DisplayMessage(new InformationMessage($"AP Connection error: {e.Message}"));
+            attemptingConnection = false;
             return;
         }
 
         TryConnect();
     }
-
     /// <summary>
     /// add handlers for Archipelago events
     /// </summary>
@@ -54,6 +57,7 @@ public class ArchipelagoClient
         session.Items.ItemReceived += OnItemReceived;
         session.Socket.ErrorReceived += OnSessionErrorReceived;
         session.Socket.SocketClosed += OnSessionSocketClosed;
+        session.MessageLog.OnMessageReceived += OnMessageReceived;
     }
 
     /// <summary>
@@ -204,5 +208,23 @@ public class ArchipelagoClient
 
         var statusUpdate = new StatusUpdatePacket { Status = ArchipelagoClientState.ClientGoal };
         session.Socket.SendPacketAsync(statusUpdate);
+    }
+
+    private static ConcurrentQueue<InformationMessage> _pending = new ConcurrentQueue<InformationMessage>();
+
+    public static void OnMessageReceived(LogMessage message)
+    {
+        foreach (var part in message.Parts)
+        {
+            var apColor = part.Color;
+            var bColor = new Color(apColor.R / 255f, apColor.G / 255f, apColor.B / 255f);
+            _pending.Enqueue(new InformationMessage(part.Text, bColor));
+        }
+    }
+
+    public void Flush()
+    {
+        while (_pending.TryDequeue(out var msg))
+            InformationManager.DisplayMessage(msg);
     }
 }

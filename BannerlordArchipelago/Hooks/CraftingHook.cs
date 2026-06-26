@@ -1,7 +1,12 @@
 ﻿using BannerlordArchipelago.Archipelago;
 using HarmonyLib;
 using System;
+using System.Reflection;
+using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.CampaignBehaviors;
+using TaleWorlds.CampaignSystem.CraftingSystem;
+using TaleWorlds.CampaignSystem.ViewModelCollection.WeaponCrafting;
+using TaleWorlds.CampaignSystem.ViewModelCollection.WeaponCrafting.WeaponDesign;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 
@@ -20,29 +25,79 @@ namespace BannerlordArchipelago.Hooks
             catch (Exception e)
             {
                 InformationManager.DisplayMessage(new InformationMessage(
-                    $"[AP] CraftingFreeBuildPatch exception: {e.Message}", Colors.Red));
+                    $"[AP] CraftingFreeBuildPatch postfix exception: {e.Message}", Colors.Red));
             }
         }
     }
-
-    [HarmonyPatch(typeof(CraftingCampaignBehavior), "GetOrderResult")]
-    public static class CraftingOrderPatch
+    [HarmonyPatch(typeof(CraftingVM), "ExecuteMainAction")]
+    public static class CraftingMainActionPatch
     {
-        public static void Postfix(ItemObject craftedItem, bool isSucceed)
+        private static readonly FieldInfo CraftingField = typeof(WeaponDesignVM)
+            .GetField("_crafting", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        public static bool Prefix(CraftingVM __instance)
         {
             try
             {
-                if (craftedItem == null || !isSucceed) return;
-                CraftingShared.HandleCraftedWeapon(craftedItem);
+                var weaponDesignVM = __instance.WeaponDesign;
+                if (weaponDesignVM == null) return true;
+
+                var crafting = CraftingField.GetValue(weaponDesignVM) as Crafting;
+                if (crafting == null) return true;
+
+                return CraftingShared.CheckCraftingAllowed(crafting.CurrentWeaponDesign);
             }
             catch (Exception e)
             {
                 InformationManager.DisplayMessage(new InformationMessage(
-                    $"[AP] CraftingOrderPatch exception: {e.Message}", Colors.Red));
+                    $"[AP] CraftingMainActionPatch exception: {e.Message}", Colors.Red));
+                return true;
             }
         }
     }
 
+    [HarmonyPatch(typeof(CraftingCampaignBehavior), "CreateCraftedWeaponInCraftingOrderMode")]
+    public static class CraftingOrderModePatch
+    {
+        public static bool Prefix(Hero crafterHero, CraftingOrder craftingOrder, WeaponDesign weaponDesign)
+        {
+            try
+            {
+                if (CraftingShared.CheckCraftingAllowed(weaponDesign)) return true;
+
+                // Return a null ItemObject — GetOrderResult will need to handle this gracefully
+                return false;
+            }
+            catch (Exception e)
+            {
+                InformationManager.DisplayMessage(new InformationMessage(
+                    $"[AP] CraftingOrderModePatch prefix exception: {e.Message}", Colors.Red));
+                return true;
+            }
+        }
+
+        public static void Postfix(ItemObject __result)
+        {
+            try
+            {
+                if (__result == null) return;
+                CraftingShared.HandleCraftedWeapon(__result);
+            }
+            catch (Exception e)
+            {
+                InformationManager.DisplayMessage(new InformationMessage(
+                    $"[AP] CraftingOrderModePatch postfix exception: {e.Message}", Colors.Red));
+            }
+        }
+    }
+    [HarmonyPatch(typeof(CraftingCampaignBehavior), "GetOrderResult")]
+    public static class CraftingOrderPatch
+    {
+        public static bool Prefix(CraftingOrder craftingOrder, ItemObject craftedItem)
+        {
+            return craftedItem != null;
+        }
+    }
     internal static class CraftingShared
     {
         internal static void HandleCraftedWeapon(ItemObject item)
@@ -89,6 +144,22 @@ namespace BannerlordArchipelago.Hooks
             }
 
             return weapon.WeaponClass.ToString();
+        }
+    
+    internal static bool CheckCraftingAllowed(WeaponDesign weaponDesign)
+        {
+            if (weaponDesign?.Template == null) return true;
+
+            string weaponType = weaponDesign.Template.StringId;
+
+            if (!Data.DataDicts.CraftingPlanItem.TryGetValue(weaponType, out string requiredPlan))
+                return true;
+            if (ReceivedItemsTracker.GetCount(requiredPlan) > 0) return true;
+
+            InformationManager.DisplayMessage(new InformationMessage(
+                $"[AP] You need '{requiredPlan}' to craft this weapon type.",
+                new Color(1.0f, 0.3f, 0.3f)));
+            return false;
         }
     }
 }

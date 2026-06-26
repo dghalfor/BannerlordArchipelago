@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Actions;
-using TaleWorlds.CampaignSystem.CharacterDevelopment;
+using TaleWorlds.CampaignSystem.CampaignBehaviors;
 using TaleWorlds.Core;
 using TaleWorlds.Library;
 using TaleWorlds.ObjectSystem;
@@ -77,6 +79,47 @@ namespace BannerlordArchipelago.Archipelago
                 ArchipelagoItems.SuppressCharmGain = false;
             }
         }
+        public static class CraftingPlanBundleItem
+        {
+            private const int PlansPerBundle = 10;
+
+            private static readonly FieldInfo OpenedPartsDictionaryField = typeof(CraftingCampaignBehavior)
+                .GetField("_openedPartsDictionary", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            public static void Grant(ICraftingCampaignBehavior craftingBehavior)
+            {
+                var behavior = craftingBehavior as CraftingCampaignBehavior;
+                if (behavior == null) return;
+
+                var openedParts = (Dictionary<CraftingTemplate, MBList<CraftingPiece>>)
+                    OpenedPartsDictionaryField.GetValue(behavior);
+
+                var locked = new List<(CraftingPiece piece, CraftingTemplate template)>();
+
+                foreach (var template in CraftingTemplate.All)
+                    foreach (var piece in template.Pieces)
+                        if (!piece.IsHiddenOnDesigner && !craftingBehavior.IsOpened(piece, template))
+                            locked.Add((piece, template));
+
+                if (locked.Count == 0)
+                {
+                    Log("Crafting Plan Bundle — all plans already known!");
+                    return;
+                }
+
+                var toUnlock = locked
+                    .OrderBy(_ => MBRandom.RandomFloat)
+                    .Take(PlansPerBundle)
+                    .ToList();
+
+                foreach (var (piece, template) in toUnlock)
+                {
+                    openedParts[template].Add(piece);
+                    CampaignEventDispatcher.Instance.CraftingPartUnlocked(piece);
+                }
+            }
+        }
+
         private static void Log(string msg)
         {
             InformationManager.DisplayMessage(new InformationMessage($"[AP] {msg}", Colors.Red));
