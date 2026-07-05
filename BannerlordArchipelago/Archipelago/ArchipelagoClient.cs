@@ -3,6 +3,7 @@ using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Helpers;
 using Archipelago.MultiClient.Net.MessageLog.Messages;
+using Archipelago.MultiClient.Net.MessageLog.Parts;
 using Archipelago.MultiClient.Net.Packets;
 using BannerlordArchipelago.Archipelago;
 using BannerlordArchipelago.Data;
@@ -12,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using TaleWorlds.Library;
+using TaleWorlds.Localization;
 
 public class ArchipelagoClient
 {
@@ -143,11 +145,12 @@ public class ArchipelagoClient
     private void OnItemReceived(ReceivedItemsHelper helper)
     {
         if (helper.Index <= ServerData.Index) return;
-
         var receivedItem = helper.DequeueItem();
         ServerData.Index++;
 
-        ReceivedItemsTracker.OnItemReceived(receivedItem.ItemName, helper.Index);
+        // We always enqueue so our list is up to date. We try and process if the game is ready to accept items.
+        ReceivedItemsTracker.EnqueuePending(receivedItem.ItemName, helper.Index);
+        ReceivedItemsTracker.OnItemReceived();
     }
 
     public void SendLocationCheck(string locationName)
@@ -199,7 +202,6 @@ public class ArchipelagoClient
     /// <param name="reason"></param>
     private void OnSessionSocketClosed(string reason)
     {
-        //Plugin.BepinLogger.LogError($"Connection to Archipelago lost: {reason}");
         Disconnect();
     }
     public void SendGoalAchieved()
@@ -211,19 +213,15 @@ public class ArchipelagoClient
     }
 
     private static ConcurrentQueue<InformationMessage> _pending = new ConcurrentQueue<InformationMessage>();
-
     public static void OnMessageReceived(LogMessage message)
     {
-        var sb = new System.Text.StringBuilder();
-        foreach (var part in message.Parts)
-            sb.Append(part.Text);
 
-        _pending.Enqueue(new InformationMessage(sb.ToString(), new Color(0.8f, 0.8f, 0.8f)));
+        _pending.Enqueue(new InformationMessage(message.ToString(),Colors.Magenta));
     }
-
     public void Flush()
     {
         while (_pending.TryDequeue(out var msg))
             InformationManager.DisplayMessage(msg);
+
     }
 }

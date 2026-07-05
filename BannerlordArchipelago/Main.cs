@@ -1,4 +1,6 @@
-﻿using HarmonyLib;
+﻿using Archipelago.MultiClient.Net.Helpers;
+using BannerlordArchipelago.Archipelago;
+using HarmonyLib;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.Core;
 using TaleWorlds.MountAndBlade;
@@ -32,11 +34,18 @@ namespace BannerlordArchipelago
                 campaignStarter.AddBehavior(new ArchipelagoCampaignBehavior());
             }
         }
+        public override void OnGameEnd(Game game)
+        {
+            base.OnGameEnd(game);
+            APClient.Disconnect();
+            ReceivedItemsTracker.IsReady = false;
+        }
 
         protected override void OnSubModuleUnloaded()
         {
             base.OnSubModuleUnloaded();
             APClient.Disconnect();
+            ReceivedItemsTracker.IsReady = false;
         }
     }
 }

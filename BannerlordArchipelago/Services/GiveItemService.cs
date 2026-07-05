@@ -51,10 +51,48 @@ namespace BannerlordArchipelago.Archipelago
             GainRenownAction.Apply(Hero.MainHero, amount, false);
         }
 
+        // ── Focus / Attribute Points ─────────────────────────────────────────
+        // Replaces the old direct-XP scrolls. Player still invests these points
+        // through the normal game UI is bypassed entirely here - AddFocus/AddAttribute
+        // invest the point directly, matching the "no manual assignment" design
+        // decision (see ClearUnspentPoints in the campaign behavior).
+        private static void LogToFile(string msg)
+        {
+            try
+            {
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(BasePath.Name, "Modules", "BannerlordArchipelago", "ap_debug.log"),
+                    $"{DateTime.Now:HH:mm:ss.fff} {msg}\n");
+            }
+            catch { /* never let logging itself crash the game */ }
+        }
+
+        public static void GrantFocusPoint(SkillObject skill)
+        {
+            LogToFile($"GrantFocusPoint: about to call AddFocus for {skill?.StringId}");
+            // checkFocusLimit: true - respects the hard vanilla cap of 5 per skill.
+            // If already at cap, this call should no-op safely; confirm against
+            // your decompile that AddFocus doesn't throw when already at max.
+            Hero.MainHero.HeroDeveloper.AddFocus(skill, 1, true);
+            LogToFile($"GrantFocusPoint: AddFocus succeeded for {skill?.StringId}");
+        }
+
+        public static void GrantAttributePoint(CharacterAttribute attribute)
+        {
+            int before = Hero.MainHero.GetAttributeValue(attribute);
+            LogToFile($"GrantAttributePoint: about to call AddAttribute for {attribute?.StringId}, current value={before}");
+            // checkAttributeLimit: true - respects the cap of 10.
+            Hero.MainHero.HeroDeveloper.AddAttribute(attribute, 1, false);
+            int after = Hero.MainHero.GetAttributeValue(attribute);
+            LogToFile($"GrantAttributePoint: AddAttribute called for {attribute?.StringId}, before={before}, after={after}");
+        }
+
         // ── Hero Level (via XP on a broad skill spread) ──────────────────────
         // Bannerlord levels are driven by skill XP, not a direct level field.
         // AddSkillXp on a broad set of skills is the safest way to push a level.
         // Alternatively, HeroDeveloper.UnlockGenericPerks() triggers perk points.
+        // NOTE: kept only for the still-unhandled "Hero Level" item - no longer
+        // used for skillsanity scrolls, which have been replaced by focus/attribute grants above.
         public static void GiveSkillXp(SkillObject skill, float amount)
         {
             Hero.MainHero.AddSkillXp(skill, amount);

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Archipelago.MultiClient.Net.Helpers;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -36,25 +37,87 @@ namespace BannerlordArchipelago.Archipelago
         public const string Renown = "Renown";
         public const string LargeRenown = "Large Renown";
 
-        // Skill XP "scrolls"
-        public const string OneHandedXp = "One Handed Scroll";
-        public const string TwoHandedXp = "Two Handed Scroll";
-        public const string PolearmXp = "Polearm Scroll";
-        public const string BowXp = "Bow Scroll";
-        public const string CrossbowXp = "Crossbow Scroll";
-        public const string ThrowingXp = "Throwing Scroll";
-        public const string RidingXp = "Riding Scroll";
-        public const string AthleticsXp = "Athletics Scroll";
-        public const string CraftingXp = "Crafting Scroll";
-        public const string TacticsXp = "Tactics Scroll";
-        public const string ScoutingXp = "Scouting Scroll";
-        public const string RogueryXp = "Roguery Scroll";
-        public const string CharmXp = "Charm Scroll";
-        public const string LeadershipXp = "Leadership Scroll";
-        public const string TradeXp = "Trade Scroll";
-        public const string StewardXp = "Steward Scroll";
-        public const string MedicineXp = "Medicine Scroll";
-        public const string EngineeringXp = "Engineering Scroll";
+        // Attribute Points (progressive; count 7 per attribute, since baseline is forced to 3 and cap is 10)
+        public const string VigorAttribute = "Vigor Attribute";
+        public const string ControlAttribute = "Control Attribute";
+        public const string EnduranceAttribute = "Endurance Attribute";
+        public const string CunningAttribute = "Cunning Attribute";
+        public const string SocialAttribute = "Social Attribute";
+        public const string IntelligenceAttribute = "Intelligence Attribute";
+
+        // Focus Points (progressive per skill; count 5 per skill, the hard vanilla focus cap)
+        public const string OneHandedFocus = "OneHanded Focus";
+        public const string TwoHandedFocus = "TwoHanded Focus";
+        public const string PolearmFocus = "Polearm Focus";
+        public const string BowFocus = "Bow Focus";
+        public const string CrossbowFocus = "Crossbow Focus";
+        public const string ThrowingFocus = "Throwing Focus";
+        public const string RidingFocus = "Riding Focus";
+        public const string AthleticsFocus = "Athletics Focus";
+        public const string CraftingFocus = "Crafting Focus"; // in-game UI label is "Smithing"; DefaultSkills.Crafting is the actual skill
+        public const string TacticsFocus = "Tactics Focus";
+        public const string ScoutingFocus = "Scouting Focus";
+        public const string RogueryFocus = "Roguery Focus";
+        public const string CharmFocus = "Charm Focus";
+        public const string LeadershipFocus = "Leadership Focus";
+        public const string TradeFocus = "Trade Focus";
+        public const string StewardFocus = "Steward Focus";
+        public const string MedicineFocus = "Medicine Focus";
+        public const string EngineeringFocus = "Engineering Focus";
+
+        private static Dictionary<string, SkillObject> _focusItemToSkill;
+        public static Dictionary<string, SkillObject> FocusItemToSkill
+        {
+            get
+            {
+                if (_focusItemToSkill == null)
+                {
+                    _focusItemToSkill = new Dictionary<string, SkillObject>
+                    {
+                        { OneHandedFocus, DefaultSkills.OneHanded },
+                        { TwoHandedFocus, DefaultSkills.TwoHanded },
+                        { PolearmFocus, DefaultSkills.Polearm },
+                        { BowFocus, DefaultSkills.Bow },
+                        { CrossbowFocus, DefaultSkills.Crossbow },
+                        { ThrowingFocus, DefaultSkills.Throwing },
+                        { RidingFocus, DefaultSkills.Riding },
+                        { AthleticsFocus, DefaultSkills.Athletics },
+                        { CraftingFocus, DefaultSkills.Crafting },
+                        { TacticsFocus, DefaultSkills.Tactics },
+                        { ScoutingFocus, DefaultSkills.Scouting },
+                        { RogueryFocus, DefaultSkills.Roguery },
+                        { CharmFocus, DefaultSkills.Charm },
+                        { LeadershipFocus, DefaultSkills.Leadership },
+                        { TradeFocus, DefaultSkills.Trade },
+                        { StewardFocus, DefaultSkills.Steward },
+                        { MedicineFocus, DefaultSkills.Medicine },
+                        { EngineeringFocus, DefaultSkills.Engineering },
+                    };
+                }
+                return _focusItemToSkill;
+            }
+        }
+
+        private static Dictionary<string, CharacterAttribute> _attributeItemToAttribute;
+        public static Dictionary<string, CharacterAttribute> AttributeItemToAttribute
+        {
+            get
+            {
+                if (_attributeItemToAttribute == null)
+                {
+                    _attributeItemToAttribute = new Dictionary<string, CharacterAttribute>
+                    {
+                        { VigorAttribute, DefaultCharacterAttributes.Vigor },
+                        { ControlAttribute, DefaultCharacterAttributes.Control },
+                        { EnduranceAttribute, DefaultCharacterAttributes.Endurance },
+                        { CunningAttribute, DefaultCharacterAttributes.Cunning },
+                        { SocialAttribute, DefaultCharacterAttributes.Social },
+                        { IntelligenceAttribute, DefaultCharacterAttributes.Intelligence },
+                    };
+                }
+                return _attributeItemToAttribute;
+            }
+        }
 
         public const string ProgressiveSturgiaTroopTier = "Progressive sturgia Troop Tier";
         public const string ProgressiveEmpireTroopTier = "Progressive empire Troop Tier";
@@ -129,19 +192,45 @@ namespace BannerlordArchipelago.Archipelago
     public static class ReceivedItemsTracker
     {
         private static readonly Dictionary<string, int> _itemCounts = new Dictionary<string, int>();
-
-        public static void OnItemReceived(string itemName, int index)
+        public static bool IsReady;
+        private static readonly Queue<(string itemName, int index)> _pendingItems = new Queue<(string, int)>();
+        public static void EnqueuePending(string itemName, int index)
         {
-            if (index > ArchipelagoCampaignBehavior._savedItemIndex || ArchipelagoItems.AlwaysProcessItems().Contains(itemName))
+            _pendingItems.Enqueue((itemName, index));
+        }
+
+        public static void OnItemReceived()
+        {
+            // This section avoids processing an item while in character creation. Because multiple items can be queued up before done, we loop through the queue once we are ready.
+            if (!IsReady) return;
+            while (_pendingItems.Count > 0)
             {
-                if (_itemCounts.ContainsKey(itemName))
-                    _itemCounts[itemName]++;
-                else
-                    _itemCounts[itemName] = 1;
-            
-                HandleItem(itemName);
+                var (itemName, index) = _pendingItems.Dequeue();
+
+                if (index > ArchipelagoCampaignBehavior._savedItemIndex || ArchipelagoItems.AlwaysProcessItems().Contains(itemName))
+                {
+                    if (_itemCounts.ContainsKey(itemName))
+                        _itemCounts[itemName]++;
+                    else
+                        _itemCounts[itemName] = 1;
+
+                    LogToFile($"OnItemReceived: dispatching '{itemName}' (index={index}, count now={_itemCounts[itemName]})");
+                    HandleItem(itemName);
+                    LogToFile($"OnItemReceived: '{itemName}' handled successfully");
+                }
             }
-        } 
+        }
+
+        private static void LogToFile(string msg)
+        {
+            try
+            {
+                System.IO.File.AppendAllText(
+                    System.IO.Path.Combine(BasePath.Name, "Modules", "BannerlordArchipelago", "ap_debug.log"),
+                    $"{DateTime.Now:HH:mm:ss.fff} {msg}\n");
+            }
+            catch { /* never let logging itself crash the game */ }
+        }
 
         public static int GetCount(string itemName)
         {
@@ -210,78 +299,6 @@ namespace BannerlordArchipelago.Archipelago
                     Notify(itemName, "+300 renown.");
                     break;
 
-                case ArchipelagoItems.OneHandedXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.OneHanded, 5000f);
-                    Notify(itemName, "+5000 One Handed XP.");
-                    break;
-                case ArchipelagoItems.TwoHandedXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.TwoHanded, 5000f);
-                    Notify(itemName, "+5000 Two Handed XP.");
-                    break;
-                case ArchipelagoItems.PolearmXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Polearm, 5000f);
-                    Notify(itemName, "+5000 Polearm XP.");
-                    break;
-                case ArchipelagoItems.BowXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Bow, 5000f);
-                    Notify(itemName, "+5000 Bow XP.");
-                    break;
-                case ArchipelagoItems.CrossbowXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Crossbow, 5000f);
-                    Notify(itemName, "+5000 Crossbow XP.");
-                    break;
-                case ArchipelagoItems.ThrowingXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Throwing, 5000f);
-                    Notify(itemName, "+5000 Throwing XP.");
-                    break;
-                case ArchipelagoItems.RidingXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Riding, 2500f);
-                    Notify(itemName, "+2500 Riding XP.");
-                    break;
-                case ArchipelagoItems.AthleticsXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Athletics, 2500f);
-                    Notify(itemName, "+2500 Athletics XP.");
-                    break;
-                case ArchipelagoItems.CraftingXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Crafting, 2500f);
-                    Notify(itemName, "+2500 Crafting XP.");
-                    break;
-                case ArchipelagoItems.TacticsXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Tactics, 2500f);
-                    Notify(itemName, "+2500 Tactics XP.");
-                    break;
-                case ArchipelagoItems.ScoutingXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Scouting, 2500f);
-                    Notify(itemName, "+2500 Scouting XP.");
-                    break;
-                case ArchipelagoItems.RogueryXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Roguery, 2500f);
-                    Notify(itemName, "+2500 Roguery XP.");
-                    break;
-                case ArchipelagoItems.CharmXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Charm, 2500f);
-                    Notify(itemName, "+2500 Charm XP.");
-                    break;
-                case ArchipelagoItems.LeadershipXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Leadership, 2500f);
-                    Notify(itemName, "+2500 Leadership XP.");
-                    break;
-                case ArchipelagoItems.TradeXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Trade, 2500f);
-                    Notify(itemName, "+2500 Trade XP.");
-                    break;
-                case ArchipelagoItems.StewardXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Steward, 2500f);
-                    Notify(itemName, "+2500 Steward XP.");
-                    break;
-                case ArchipelagoItems.MedicineXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Medicine, 2500f);
-                    Notify(itemName, "+2500 Medicine XP.");
-                    break;
-                case ArchipelagoItems.EngineeringXp:
-                    ItemGranter.GiveSkillXp(DefaultSkills.Engineering, 2500f);
-                    Notify(itemName, "+2500 Engineering XP.");
-                    break;
                 case ArchipelagoItems.LordRelation:
                     ItemGranter.GiveRelationWithAllLords(5);
                     Notify(itemName, "+5 relation with all lords.");
@@ -291,10 +308,22 @@ namespace BannerlordArchipelago.Archipelago
                     Notify(itemName, "Received a Crafting Plan Bundle.");
                     break;
                 default:
-                    InformationManager.DisplayMessage(new InformationMessage(
+                    if (ArchipelagoItems.FocusItemToSkill.TryGetValue(itemName, out var focusSkill))
+                    {
+                        ItemGranter.GrantFocusPoint(focusSkill);
+                        Notify(itemName, $"+1 Focus in {focusSkill.Name}.");
+                    }
+                    else if (ArchipelagoItems.AttributeItemToAttribute.TryGetValue(itemName, out var attribute))
+                    {
+                        ItemGranter.GrantAttributePoint(attribute);
+                        Notify(itemName, $"+1 {attribute.Name}.");
+                    }
+                    else if (!ArchipelagoItems.AlwaysProcessItems().Contains(itemName))
+                    {
+                        InformationManager.DisplayMessage(new InformationMessage(
                         $"[AP] Received unhandled item: {itemName}",
-                        Colors.Yellow
-                    ));
+                        Colors.Yellow));
+                    }
                     break;
             }
         }
@@ -307,5 +336,5 @@ namespace BannerlordArchipelago.Archipelago
             ));
         }
     }
-    
+
 }
