@@ -129,8 +129,20 @@ namespace BannerlordArchipelago.Archipelago
                 var behavior = craftingBehavior as CraftingCampaignBehavior;
                 if (behavior == null) return;
 
-                var openedParts = (Dictionary<CraftingTemplate, MBList<CraftingPiece>>)
+                if (OpenedPartsDictionaryField == null)
+                {
+                    Log("Crafting Plan Bundle — could not find _openedPartsDictionary field via reflection, skipping grant");
+                    return;
+                }
+
+                var openedParts = (Dictionary<CraftingTemplate, List<CraftingPiece>>)
                     OpenedPartsDictionaryField.GetValue(behavior);
+
+                if (openedParts == null)
+                {
+                    Log("Crafting Plan Bundle — openedParts dictionary was null, skipping grant");
+                    return;
+                }
 
                 var locked = new List<(CraftingPiece piece, CraftingTemplate template)>();
 
@@ -152,7 +164,17 @@ namespace BannerlordArchipelago.Archipelago
 
                 foreach (var (piece, template) in toUnlock)
                 {
-                    openedParts[template].Add(piece);
+                    if (!openedParts.TryGetValue(template, out var pieceList))
+                    {
+                        pieceList = new List<CraftingPiece>();
+                        openedParts[template] = pieceList;
+                    }
+
+                    if (!pieceList.Contains(piece))
+                    {
+                        pieceList.Add(piece);
+                    }
+
                     CampaignEventDispatcher.Instance.CraftingPartUnlocked(piece);
                 }
             }
