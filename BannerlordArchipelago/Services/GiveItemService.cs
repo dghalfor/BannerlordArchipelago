@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BannerlordArchipelago.Utils;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -56,35 +57,25 @@ namespace BannerlordArchipelago.Archipelago
         // through the normal game UI is bypassed entirely here - AddFocus/AddAttribute
         // invest the point directly, matching the "no manual assignment" design
         // decision (see ClearUnspentPoints in the campaign behavior).
-        private static void LogToFile(string msg)
-        {
-            try
-            {
-                System.IO.File.AppendAllText(
-                    System.IO.Path.Combine(BasePath.Name, "Modules", "BannerlordArchipelago", "ap_debug.log"),
-                    $"{DateTime.Now:HH:mm:ss.fff} {msg}\n");
-            }
-            catch { /* never let logging itself crash the game */ }
-        }
 
         public static void GrantFocusPoint(SkillObject skill)
         {
-            LogToFile($"GrantFocusPoint: about to call AddFocus for {skill?.StringId}");
+            APLog.LogToFile($"GrantFocusPoint: about to call AddFocus for {skill?.StringId}");
             // checkFocusLimit: true - respects the hard vanilla cap of 5 per skill.
             // If already at cap, this call should no-op safely; confirm against
             // your decompile that AddFocus doesn't throw when already at max.
             Hero.MainHero.HeroDeveloper.AddFocus(skill, 1, true);
-            LogToFile($"GrantFocusPoint: AddFocus succeeded for {skill?.StringId}");
+            APLog.LogToFile($"GrantFocusPoint: AddFocus succeeded for {skill?.StringId}");
         }
 
         public static void GrantAttributePoint(CharacterAttribute attribute)
         {
             int before = Hero.MainHero.GetAttributeValue(attribute);
-            LogToFile($"GrantAttributePoint: about to call AddAttribute for {attribute?.StringId}, current value={before}");
+            APLog.LogToFile($"GrantAttributePoint: about to call AddAttribute for {attribute?.StringId}, current value={before}");
             // checkAttributeLimit: true - respects the cap of 10.
             Hero.MainHero.HeroDeveloper.AddAttribute(attribute, 1, false);
             int after = Hero.MainHero.GetAttributeValue(attribute);
-            LogToFile($"GrantAttributePoint: AddAttribute called for {attribute?.StringId}, before={before}, after={after}");
+            APLog.LogToFile($"GrantAttributePoint: AddAttribute called for {attribute?.StringId}, before={before}, after={after}");
         }
 
         // ── Hero Level (via XP on a broad skill spread) ──────────────────────

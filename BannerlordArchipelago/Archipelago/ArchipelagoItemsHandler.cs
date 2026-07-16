@@ -1,4 +1,8 @@
 ﻿using Archipelago.MultiClient.Net.Helpers;
+using BannerlordArchipelago;
+using BannerlordArchipelago.Archipelago;
+using BannerlordArchipelago.Archipelago.UI;
+using BannerlordArchipelago.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,6 +68,9 @@ namespace BannerlordArchipelago.Archipelago
         public const string StewardFocus = "Steward Focus";
         public const string MedicineFocus = "Medicine Focus";
         public const string EngineeringFocus = "Engineering Focus";
+        public const string MarinerFocus = "Mariner Focus";
+        public const string BoatswainFocus = "Boatswain Focus";
+        public const string ShipmasterFocus = "Shipmaster Focus";
 
         private static Dictionary<string, SkillObject> _focusItemToSkill;
         public static Dictionary<string, SkillObject> FocusItemToSkill
@@ -92,6 +99,9 @@ namespace BannerlordArchipelago.Archipelago
                         { StewardFocus, DefaultSkills.Steward },
                         { MedicineFocus, DefaultSkills.Medicine },
                         { EngineeringFocus, DefaultSkills.Engineering },
+                        { MarinerFocus, NavalDLC.CharacterDevelopment.NavalSkills.Mariner },
+                        { BoatswainFocus, NavalDLC.CharacterDevelopment.NavalSkills.Boatswain },
+                        { ShipmasterFocus, NavalDLC.CharacterDevelopment.NavalSkills.Shipmaster },
                     };
                 }
                 return _focusItemToSkill;
@@ -126,6 +136,10 @@ namespace BannerlordArchipelago.Archipelago
         public const string ProgressiveKhuzaitTroopTier = "Progressive khuzait Troop Tier";
         public const string ProgressiveAseraiTroopTier = "Progressive aserai Troop Tier";
         public const string ProgressiveNordTroopTier = "Progressive nord Troop Tier";
+        public const string ProgressiveDarshiTroopTier = "Progressive darshi Troop Tier";
+        public const string ProgressiveVakkenTroopTier = "Progressive vakken Troop Tier";
+        public const string ProgressiveBanditTroopTier = "Progressive Bandit Troop Tier";
+        public const string ProgressiveMercenaryTroopTier = "Progressive Mercenary Troop Tier";
 
         public const string TournamentPassAserai = "Tournament Pass - Aserai";
         public const string TournamentPassBattania = "Tournament Pass - Battania";
@@ -165,6 +179,10 @@ namespace BannerlordArchipelago.Archipelago
                 ProgressiveKhuzaitTroopTier,
                 ProgressiveAseraiTroopTier,
                 ProgressiveNordTroopTier,
+                ProgressiveBanditTroopTier,
+                ProgressiveDarshiTroopTier,
+                ProgressiveVakkenTroopTier,
+                ProgressiveMercenaryTroopTier,
                 TournamentPassAserai,
                 TournamentPassBattania,
                 TournamentPassKhuzait,
@@ -188,8 +206,9 @@ namespace BannerlordArchipelago.Archipelago
             };
         }
     }
+}
 
-    public static class ReceivedItemsTracker
+public static class ReceivedItemsTracker
     {
         private static readonly Dictionary<string, int> _itemCounts = new Dictionary<string, int>();
         public static bool IsReady;
@@ -201,8 +220,12 @@ namespace BannerlordArchipelago.Archipelago
 
         public static void OnItemReceived()
         {
-            // This section avoids processing an item while in character creation. Because multiple items can be queued up before done, we loop through the queue once we are ready.
+            // This section avoids processing an item while in character creation, and before
+            // real slot data has arrived from the server. Multiple items can be queued up before
+            // either condition is met, so we loop through the queue once both are satisfied.
             if (!IsReady) return;
+            if (ArchipelagoClient.ServerData.NeedSlotData) return;
+
             while (_pendingItems.Count > 0)
             {
                 var (itemName, index) = _pendingItems.Dequeue();
@@ -214,22 +237,11 @@ namespace BannerlordArchipelago.Archipelago
                     else
                         _itemCounts[itemName] = 1;
 
-                    LogToFile($"OnItemReceived: dispatching '{itemName}' (index={index}, count now={_itemCounts[itemName]})");
+                    APLog.LogToFile($"OnItemReceived: dispatching '{itemName}' (index={index}, count now={_itemCounts[itemName]})");
                     HandleItem(itemName);
-                    LogToFile($"OnItemReceived: '{itemName}' handled successfully");
+                    APLog.LogToFile($"OnItemReceived: '{itemName}' handled successfully");
                 }
             }
-        }
-
-        private static void LogToFile(string msg)
-        {
-            try
-            {
-                System.IO.File.AppendAllText(
-                    System.IO.Path.Combine(BasePath.Name, "Modules", "BannerlordArchipelago", "ap_debug.log"),
-                    $"{DateTime.Now:HH:mm:ss.fff} {msg}\n");
-            }
-            catch { /* never let logging itself crash the game */ }
         }
 
         public static int GetCount(string itemName)
@@ -280,8 +292,8 @@ namespace BannerlordArchipelago.Archipelago
                     break;
 
                 case ArchipelagoItems.Horse:
-                    ItemGranter.GiveHorse("sumpter_horse", 1);
-                    Notify(itemName, "A horse has joined your party.");
+                    ItemGranter.GiveHorse("sumpter_horse", 10);
+                    Notify(itemName, "A herd of horses has joined your party.");
                     break;
 
                 case ArchipelagoItems.SmallRenown:
@@ -290,13 +302,13 @@ namespace BannerlordArchipelago.Archipelago
                     break;
 
                 case ArchipelagoItems.Renown:
-                    ItemGranter.GiveRenown(100f);
-                    Notify(itemName, "+100 renown.");
+                    ItemGranter.GiveRenown(75f);
+                    Notify(itemName, "+75 renown.");
                     break;
 
                 case ArchipelagoItems.LargeRenown:
-                    ItemGranter.GiveRenown(300f);
-                    Notify(itemName, "+300 renown.");
+                    ItemGranter.GiveRenown(150f);
+                    Notify(itemName, "+150 renown.");
                     break;
 
                 case ArchipelagoItems.LordRelation:
@@ -306,6 +318,20 @@ namespace BannerlordArchipelago.Archipelago
                 case ArchipelagoItems.CraftingPlanBundle:
                     ItemGranter.CraftingPlanBundleItem.Grant(Campaign.Current.GetCampaignBehavior<ICraftingCampaignBehavior>());
                     Notify(itemName, "Received a Crafting Plan Bundle.");
+                    break;
+                case ArchipelagoItems.ProgressiveSturgiaTroopTier:
+                case ArchipelagoItems.ProgressiveEmpireTroopTier:
+                case ArchipelagoItems.ProgressiveBattaniaTroopTier:
+                case ArchipelagoItems.ProgressiveVlandiaTroopTier:
+                case ArchipelagoItems.ProgressiveKhuzaitTroopTier:
+                case ArchipelagoItems.ProgressiveAseraiTroopTier:
+                case ArchipelagoItems.ProgressiveNordTroopTier:
+                case ArchipelagoItems.ProgressiveDarshiTroopTier:
+                case ArchipelagoItems.ProgressiveVakkenTroopTier:
+                case ArchipelagoItems.ProgressiveBanditTroopTier:
+                case ArchipelagoItems.ProgressiveMercenaryTroopTier:
+                    Notify(itemName, "Troop tier upgrade unlocked.");
+                    PartyScreenTierStatusMixin.RaiseTierItemReceived();
                     break;
                 default:
                     if (ArchipelagoItems.FocusItemToSkill.TryGetValue(itemName, out var focusSkill))
@@ -337,4 +363,3 @@ namespace BannerlordArchipelago.Archipelago
         }
     }
 
-}

@@ -61,7 +61,7 @@ public class ArchipelagoData
             if (slotData != null && slotData.TryGetValue("dragon_banner_pieces_required", out object value))
                 return Convert.ToInt32(value);
 
-            return 3; // default if slot data hasn't arrived yet or key is missing
+            return 50; // default if slot data hasn't arrived yet or key is missing
         }
     }
 }

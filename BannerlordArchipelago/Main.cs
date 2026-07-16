@@ -1,5 +1,6 @@
 ﻿using Archipelago.MultiClient.Net.Helpers;
 using BannerlordArchipelago.Archipelago;
+using BannerlordArchipelago.CampaignBehaviors;
 using HarmonyLib;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.Core;
@@ -32,6 +33,7 @@ namespace BannerlordArchipelago
             if (gameStarter is CampaignGameStarter campaignStarter)
             {
                 campaignStarter.AddBehavior(new ArchipelagoCampaignBehavior());
+                campaignStarter.AddBehavior(new APTournamentDialogBehavior());
             }
         }
         public override void OnGameEnd(Game game)

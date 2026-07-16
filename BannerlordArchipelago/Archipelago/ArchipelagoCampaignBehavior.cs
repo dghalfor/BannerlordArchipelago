@@ -21,6 +21,7 @@ namespace BannerlordArchipelago
             CampaignEvents.DailyTickEvent.AddNonSerializedListener(this, OnDailyTick);
             CampaignEvents.HourlyTickEvent.AddNonSerializedListener(this, OnHourlyTick);
             CampaignEvents.HeroLevelledUp.AddNonSerializedListener(this, OnHeroLevelledUp);
+            CampaignEvents.PlayerUpgradedTroopsEvent.AddNonSerializedListener(this, OnPlayerUpgradedTroops);
         }
 
         public static int _savedItemIndex = 0;
@@ -132,9 +133,14 @@ namespace BannerlordArchipelago
         private void OnHourlyTick()
         {
             Main.APClient.Flush();
+
             if (!ReceivedItemsTracker.IsReady)
             {
                 ReceivedItemsTracker.IsReady = true;
+            }
+
+            if (ReceivedItemsTracker.IsReady)
+            {
                 ReceivedItemsTracker.OnItemReceived();
             }
         }
@@ -142,6 +148,22 @@ namespace BannerlordArchipelago
         {
             if (hero != Hero.MainHero) return;
             HeroLevelUpHook.ClearUnspentPoints(hero);
+        }
+        private void OnPlayerUpgradedTroops(CharacterObject upgradedFrom, CharacterObject upgradedTo, int number)
+        {
+            try
+            {
+                for (int i = 0; i < number; i++)
+                {
+                    string locationName = $"Upgraded to {upgradedTo.Name}";
+                    Main.APClient.SendLocationCheck(locationName);
+                }
+            }
+            catch (Exception e)
+            {
+                InformationManager.DisplayMessage(new InformationMessage(
+                    $"[AP Debug] Exception in OnPlayerUpgradedTroops: {e.Message}", Colors.Red));
+            }
         }
     }
 }
