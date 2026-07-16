@@ -11,6 +11,8 @@ using TaleWorlds.ObjectSystem;
 using System.Collections.Generic;
 using TaleWorlds.Library;
 using BannerlordArchipelago.Utils;
+using BannerlordArchipelago.Data;
+using BannerlordArchipelago.UI;
 
 public static class APDebugCommands
 {
@@ -54,7 +56,69 @@ public static class APDebugCommands
             return $"Diagnostic failed: {ex}";
         }
     }
+
+    // Strips everything but letters/digits and lowercases, so "Gang Leader
+    // Needs Special Weapons", "gangleaderneedsspecialweapons", and
+    // "GangLeaderNeedsSpecialWeaponsIssue" all normalize to the same string
+    // and can be matched against each other regardless of spacing/casing.
+    private static string Normalize(string s) =>
+        new string(s.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+
+    [CommandLineFunctionality.CommandLineArgumentFunction("showlocations", "ap")]
+    public static string ShowQuestLocations(List<string> args)
+    {
+        if (args.Count < 1)
+            return "Usage: ap.showlocations <name or partial name>  (run ap.listissuetypes to see current options)";
+
+        // Console args are space-split, so rejoin them — the player is typing
+        // a human phrase like "gang leader needs special weapons", not a token.
+        string query = string.Join(" ", args);
+        string normalizedQuery = Normalize(query);
+
+        var active = QuestLocationLookup.GetActiveIssuesWithTitles();
+
+        var matches = active
+            .Where(a => Normalize(a.Title).Contains(normalizedQuery) || Normalize(a.TypeName).Contains(normalizedQuery))
+            .ToList();
+
+        if (matches.Count == 0)
+            return $"No active issue matches '{query}'. Run ap.listissuetypes to see current options.";
+
+        if (matches.Count > 1)
+        {
+            string options = string.Join(", ", matches.Select(m => m.Title));
+            return $"'{query}' matches more than one active issue — be more specific: {options}";
+        }
+
+        var match = matches[0];
+        var entries = QuestLocationLookup.GetLocationsOfferingIssueType(match.TypeName);
+        var displayTexts = entries.Select(e => e.DisplayText).ToList();
+
+        QuestLocationTooltipManager.Show(match.Title, displayTexts);
+
+        return displayTexts.Count > 0
+            ? $"Showing {displayTexts.Count} location(s) offering '{match.Title}'."
+            : $"No notables are currently offering '{match.Title}'.";
+    }
+
+    [CommandLineFunctionality.CommandLineArgumentFunction("hidelocations", "ap")]
+    public static string HideQuestLocations(List<string> args)
+    {
+        QuestLocationTooltipManager.Hide();
+        return "Hidden.";
+    }
+
+    [CommandLineFunctionality.CommandLineArgumentFunction("listissuetypes", "ap")]
+    public static string ListActiveIssueTypes(List<string> args)
+    {
+        var active = QuestLocationLookup.GetActiveIssuesWithTitles();
+        return active.Count > 0
+            ? string.Join("\n", active.Select(a => $"{a.Title} ({a.Count} location{(a.Count == 1 ? "" : "s")})"))
+            : "No issues are currently active anywhere in the world.";
+    }
 }
+
+
 
 public static class APExportCommands
 {
