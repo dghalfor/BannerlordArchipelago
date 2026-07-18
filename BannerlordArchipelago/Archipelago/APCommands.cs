@@ -16,7 +16,7 @@ using BannerlordArchipelago.UI;
 
 public static class APDebugCommands
 {
-    [CommandLineFunctionality.CommandLineArgumentFunction("diagnosebandits", "ap")]
+    [CommandLineFunctionality.CommandLineArgumentFunction("diagnosebandits", "apdebug")]
     public static string DiagnoseBanditOccupations(List<string> args)
     {
         try
@@ -29,7 +29,7 @@ public static class APDebugCommands
             return $"Diagnostic failed: {ex}";
         }
     }
-    [CommandLineFunctionality.CommandLineArgumentFunction("diagnoseTroops", "ap")]
+    [CommandLineFunctionality.CommandLineArgumentFunction("diagnoseTroops", "apdebug")]
     public static string DiagnoseTroops(List<string> args)
     {
         try
@@ -42,7 +42,7 @@ public static class APDebugCommands
             return $"Diagnostic failed: {ex}";
         }
     }
-    [CommandLineFunctionality.CommandLineArgumentFunction("diagnosebanditsmercs", "ap")]
+    [CommandLineFunctionality.CommandLineArgumentFunction("diagnosebanditsmercs", "apdebug")]
     public static string DiagnoseBanditsMercs(List<string> args)
     {
         try
@@ -64,11 +64,11 @@ public static class APDebugCommands
     private static string Normalize(string s) =>
         new string(s.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
 
-    [CommandLineFunctionality.CommandLineArgumentFunction("showlocations", "ap")]
+    [CommandLineFunctionality.CommandLineArgumentFunction("findquest", "ap")]
     public static string ShowQuestLocations(List<string> args)
     {
         if (args.Count < 1)
-            return "Usage: ap.showlocations <name or partial name>  (run ap.listissuetypes to see current options)";
+            return "Usage: ap.findquest <name or partial name>  (run ap.listquest to see current options)";
 
         // Console args are space-split, so rejoin them — the player is typing
         // a human phrase like "gang leader needs special weapons", not a token.
@@ -82,7 +82,7 @@ public static class APDebugCommands
             .ToList();
 
         if (matches.Count == 0)
-            return $"No active issue matches '{query}'. Run ap.listissuetypes to see current options.";
+            return $"No active issue matches '{query}'. Run ap.listquest to see current options.";
 
         if (matches.Count > 1)
         {
@@ -101,14 +101,14 @@ public static class APDebugCommands
             : $"No notables are currently offering '{match.Title}'.";
     }
 
-    [CommandLineFunctionality.CommandLineArgumentFunction("hidelocations", "ap")]
+    [CommandLineFunctionality.CommandLineArgumentFunction("hidequest", "ap")]
     public static string HideQuestLocations(List<string> args)
     {
         QuestLocationTooltipManager.Hide();
         return "Hidden.";
     }
 
-    [CommandLineFunctionality.CommandLineArgumentFunction("listissuetypes", "ap")]
+    [CommandLineFunctionality.CommandLineArgumentFunction("listquest", "ap")]
     public static string ListActiveIssueTypes(List<string> args)
     {
         var active = QuestLocationLookup.GetActiveIssuesWithTitles();
@@ -122,7 +122,7 @@ public static class APDebugCommands
 
 public static class APExportCommands
 {
-    [CommandLineFunctionality.CommandLineArgumentFunction("exporttroopdata", "ap")]
+    [CommandLineFunctionality.CommandLineArgumentFunction("exporttroopdata", "apdebug")]
     public static string ExportTroopData(List<string> args)
     {
         try

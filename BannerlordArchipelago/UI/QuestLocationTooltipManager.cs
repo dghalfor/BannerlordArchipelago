@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.Engine.GauntletUI;
+using TaleWorlds.GauntletUI.BaseTypes;
 using TaleWorlds.GauntletUI.Data;
+using TaleWorlds.InputSystem;
 using TaleWorlds.Library;
 using TaleWorlds.ScreenSystem;
 
@@ -13,19 +16,15 @@ namespace BannerlordArchipelago.UI
 
         private readonly GauntletMovieIdentifier _movieIdentifier;
 
-        // Base signature is GauntletLayer(string name, int localOrder, bool shouldClear = false) —
-        // name comes first, not localOrder.
         public QuestLocationTooltipLayer(int localOrder) : base("QuestLocationTooltipLayer", localOrder)
         {
             DataSource = new QuestLocationTooltipVM();
             _movieIdentifier = LoadMovie("QuestLocationTooltip", DataSource);
         }
 
+
         protected override void OnFinalize()
         {
-            // GauntletLayer.OnFinalize asserts if a movie is still loaded at that point,
-            // so release it explicitly first rather than relying on the base class to
-            // clean it up implicitly.
             if (_movieIdentifier != null)
             {
                 ReleaseMovie(_movieIdentifier);
@@ -44,6 +43,13 @@ namespace BannerlordArchipelago.UI
         private static QuestLocationTooltipLayer _layer;
         private static bool _listenerRegistered;
 
+        public static void SetButtonInputRestricted(bool restricted)
+        {
+            _layer?.InputRestrictions.SetInputRestrictions(
+                restricted,
+                restricted ? InputUsageMask.MouseButtons : InputUsageMask.Invalid);
+        }
+
         public static void Show(string questTitle, IEnumerable<string> locationDisplayTexts)
         {
             EnsureListenerRegistered();
@@ -56,12 +62,7 @@ namespace BannerlordArchipelago.UI
                 screen.AddLayer(_layer);
             }
 
-            // FORCE ENGINE REGISTRATION: Give click priority right over the overlay grid
-           // _layer.SetInputRestrictions(true, InputUsageMask.MouseButtons | InputUsageMask.MouseWheels);
-
-            // Explicitly lock focus to this layer so clicks hit the button
             ScreenManager.TrySetFocus(_layer);
-
             _layer.DataSource.Populate(questTitle, locationDisplayTexts);
         }
 

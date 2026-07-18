@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Bannerlord.UIExtenderEx.Attributes;
+using System.Collections.Generic;
 using TaleWorlds.Library;
 
 namespace BannerlordArchipelago.UI
@@ -30,10 +31,10 @@ namespace BannerlordArchipelago.UI
     public class QuestLocationTooltipVM : ViewModel
     {
         private MBBindingList<QuestLocationEntryVM> _locations = new MBBindingList<QuestLocationEntryVM>();
-        private string _questTitle;
+        private string _rawQuestTitle = "";
+        private string _displayedTitle = "";
         private bool _isVisible;
         private bool _isExpanded = true;
-        private string _toggleButtonBrush = "Popup.CloseButton"; // Default fallback
 
         [DataSourceProperty]
         public MBBindingList<QuestLocationEntryVM> Locations
@@ -45,8 +46,8 @@ namespace BannerlordArchipelago.UI
         [DataSourceProperty]
         public string QuestTitle
         {
-            get => _questTitle;
-            set { if (value != _questTitle) { _questTitle = value; OnPropertyChangedWithValue(value, nameof(QuestTitle)); } }
+            get => _displayedTitle;
+            set { if (value != _displayedTitle) { _displayedTitle = value; OnPropertyChangedWithValue(value, nameof(QuestTitle)); } }
         }
 
         [DataSourceProperty]
@@ -56,52 +57,38 @@ namespace BannerlordArchipelago.UI
             set { if (value != _isVisible) { _isVisible = value; OnPropertyChangedWithValue(value, nameof(IsVisible)); } }
         }
 
+        public void Populate(string questTitle, IEnumerable<string> locationDisplayTexts)
+        {
+            _rawQuestTitle = questTitle;
+            Locations.Clear();
+            foreach (var text in locationDisplayTexts) Locations.Add(new QuestLocationEntryVM(text));
+
+            IsVisible = true;
+            IsExpanded = true;
+            QuestTitle = _rawQuestTitle;
+        }
+
         [DataSourceProperty]
         public bool IsExpanded
         {
             get => _isExpanded;
-            set
-            {
-                if (value != _isExpanded)
-                {
-                    _isExpanded = value;
-                    OnPropertyChangedWithValue(value, nameof(IsExpanded));
-                    UpdateBrush(); // Refresh the icon whenever state changes
-                }
-            }
+            set { if (value != _isExpanded) { _isExpanded = value; OnPropertyChangedWithValue(value, nameof(IsExpanded)); } }
         }
 
-        // NEW PROPERTY: Safely feeds the plain text brush name to the XML
-        [DataSourceProperty]
-        public string ToggleButtonBrush
+        public void OnHoverBegin()
         {
-            get => _toggleButtonBrush;
-            set { if (value != _toggleButtonBrush) { _toggleButtonBrush = value; OnPropertyChangedWithValue(value, nameof(ToggleButtonBrush)); } }
+            QuestLocationTooltipManager.SetButtonInputRestricted(true);
         }
 
-        public void Populate(string questTitle, IEnumerable<string> locationDisplayTexts)
+        public void OnHoverEnd()
         {
-            QuestTitle = questTitle;
-            Locations.Clear();
-            foreach (var text in locationDisplayTexts) Locations.Add(new QuestLocationEntryVM(text));
-            IsVisible = true;
-            IsExpanded = true;
-            UpdateBrush();
+            QuestLocationTooltipManager.SetButtonInputRestricted(false);
         }
-
         public void ExecuteClose()
         {
-            // Toggle the value
             IsExpanded = !IsExpanded;
 
-            // Optional: Add a debug line to check if the game registers the click in your console
-            InformationManager.DisplayMessage(new InformationMessage($"Quest list toggle clicked! Current state: {IsExpanded}"));
-        }
-
-        // Changes the brush. Swap these string names with custom mod textures if needed!
-        private void UpdateBrush()
-        {
-            ToggleButtonBrush = IsExpanded ? "Popup.CloseButton" : "ResetButton";
+            OnPropertyChanged(nameof(IsExpanded));
         }
     }
 }
