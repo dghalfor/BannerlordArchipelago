@@ -4,9 +4,11 @@ using BannerlordArchipelago.Archipelago;
 using BannerlordArchipelago.Archipelago.UI;
 using BannerlordArchipelago.Utils;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.CampaignBehaviors;
@@ -212,49 +214,56 @@ public static class ReceivedItemsTracker
     {
         private static readonly Dictionary<string, int> _itemCounts = new Dictionary<string, int>();
         public static bool IsReady;
-        private static readonly Queue<(string itemName, int index)> _pendingItems = new Queue<(string, int)>();
-        public static void EnqueuePending(string itemName, int index)
-        {
-            _pendingItems.Enqueue((itemName, index));
-        }
+        private static readonly ConcurrentQueue<(string itemName, int index)> _pendingItems =
+        new ConcurrentQueue<(string, int)>();
+        private static readonly HashSet<int> _seenIndices = new HashSet<int>();
 
-        public static void OnItemReceived()
-        {
-            // This section avoids processing an item while in character creation, and before
-            // real slot data has arrived from the server. Multiple items can be queued up before
-            // either condition is met, so we loop through the queue once both are satisfied.
-            if (!IsReady) return;
-            if (ArchipelagoClient.ServerData.NeedSlotData) return;
+        public static int AppliedIndex;
+        public static bool Initialized;
 
-            while (_pendingItems.Count > 0)
+    public static void EnqueuePending(string itemName, int index) =>
+        _pendingItems.Enqueue((itemName, index));
+
+    public static void OnItemReceived()
+    {
+        if (!IsReady) return;
+        if (ArchipelagoClient.ServerData.NeedSlotData) return;
+
+        while (_pendingItems.TryDequeue(out var item))
+        {
+            var (itemName, index) = item;
+            if (!_seenIndices.Add(index)) continue; // same server item delivered twice
+
+            bool isNew = index > ArchipelagoCampaignBehavior._savedItemIndex;
+            if (isNew || ArchipelagoItems.AlwaysProcessItems().Contains(itemName))
             {
-                var (itemName, index) = _pendingItems.Dequeue();
-
-                if (index > ArchipelagoCampaignBehavior._savedItemIndex || ArchipelagoItems.AlwaysProcessItems().Contains(itemName))
-                {
-                    if (_itemCounts.ContainsKey(itemName))
-                        _itemCounts[itemName]++;
-                    else
-                        _itemCounts[itemName] = 1;
-
-                    APLog.LogToFile($"OnItemReceived: dispatching '{itemName}' (index={index}, count now={_itemCounts[itemName]})");
-                    HandleItem(itemName);
-                    APLog.LogToFile($"OnItemReceived: '{itemName}' handled successfully");
-                }
+                _itemCounts[itemName] = GetCount(itemName) + 1;
+                APLog.LogToFile($"OnItemReceived: dispatching '{itemName}' (index={index}, count now={_itemCounts[itemName]}, thread={Thread.CurrentThread.ManagedThreadId})");
+                HandleItem(itemName);
             }
-        }
 
-        public static int GetCount(string itemName)
+            // Advance only here, after processing, never on arrival
+            if (index > AppliedIndex) AppliedIndex = index;
+        }
+    }
+
+
+    public static int GetCount(string itemName)
         {
             return _itemCounts.TryGetValue(itemName, out int count) ? count : 0;
         }
 
-        public static void Reset()
-        {
-            _itemCounts.Clear();
-        }
+    public static void Reset()
+    {
+        _itemCounts.Clear();
+        _seenIndices.Clear();
+        while (_pendingItems.TryDequeue(out _)) { }
+        IsReady = false;
+        AppliedIndex = ArchipelagoCampaignBehavior._savedItemIndex;
+        Initialized = true;
+    }
 
-        private static void HandleItem(string itemName)
+    private static void HandleItem(string itemName)
         {
             switch (itemName)
             {
@@ -265,11 +274,10 @@ public static class ReceivedItemsTracker
                         Colors.Cyan
                     ));
 
-                    if (count >= ArchipelagoClient.ServerData.DragonBannerPiecesRequired)
-                    {
-                        Main.APClient.SendGoalAchieved();
-                    }
-                    break;
+                if (Main.APClient.CountReceived(ArchipelagoItems.DragonBannerPiece)
+                        >= ArchipelagoClient.ServerData.DragonBannerPiecesRequired)
+                    Main.APClient.SendGoalAchieved();
+                break;
 
                 case ArchipelagoItems.SmallPouchOfDenars:
                     ItemGranter.GiveDenars(1000);

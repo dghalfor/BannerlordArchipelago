@@ -30,9 +30,9 @@ namespace BannerlordArchipelago
 
         public override void SyncData(IDataStore dataStore)
         {
-            if (dataStore.IsSaving)
+            if (dataStore.IsSaving && ReceivedItemsTracker.Initialized)
             {
-                _savedItemIndex = ArchipelagoClient.ServerData.Index;
+                _savedItemIndex = ReceivedItemsTracker.AppliedIndex;
                 InformationManager.DisplayMessage(new InformationMessage(
                     $"[AP] Saving index: {_savedItemIndex}", Colors.Yellow));
             }
@@ -51,11 +51,9 @@ namespace BannerlordArchipelago
         private void OnNewGameCreated(CampaignGameStarter starter)
         {
             _checkedFoodVarieties.Clear();
+            _savedItemIndex = 0;                 // moved before Reset
             ReceivedItemsTracker.Reset();
-            ArchipelagoCampaignBehavior._savedItemIndex = 0;
-            // We gotta clear the stats a hero is set with at the beginning, this will force that to occur once the session has actually launched
             _pendingProgressionReset = true;
-            _connectCalled = false;
             TryConnect();
         }
 
@@ -79,30 +77,18 @@ namespace BannerlordArchipelago
         {
             _checkedFoodVarieties.Clear();
             ReceivedItemsTracker.Reset();
-
-            if (!_connectCalled)
-                TryConnect();
+            TryConnect();
         }
 
         private void TryConnect()
         {
             var s = ArchipelagoSettings.Instance;
+            if (string.IsNullOrWhiteSpace(s.SlotName)) { /* existing message */ return; }
 
-            if (string.IsNullOrWhiteSpace(s.SlotName))
-            {
-                InformationManager.DisplayMessage(new InformationMessage(
-                    "[AP] No slot name configured. Open Mod Options and fill in your Archipelago connection settings.",
-                    Colors.Yellow
-                ));
-                return;
-            }
+            Main.APClient.Disconnect();   // NEW
 
             ArchipelagoClient.ServerData = new ArchipelagoData(
-                uri: $"{s.Host}:{s.Port}",
-                slotName: s.SlotName,
-                password: s.Password
-                
-            );
+                uri: $"{s.Host}:{s.Port}", slotName: s.SlotName, password: s.Password);
 
             Main.APClient.Connect();
         }
